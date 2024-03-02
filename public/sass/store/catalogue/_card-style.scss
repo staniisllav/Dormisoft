@@ -1,0 +1,223 @@
+//<---------------------------- Card ---------------------------->
+.card {
+  background: $primary;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
+  justify-content: space-between;
+  position: relative;
+  gap: 15px;
+  width: 100%;
+  height: 100%;
+  box-shadow: $boxShadow;
+
+  &.flying {
+    z-index: 200;
+  }
+
+  &:hover {
+    .card-image {
+      scale: 1.1;
+      mix-blend-mode: multiply;
+    }
+  }
+}
+
+.card-image {
+  width: 100%;
+  height: 300px;
+  object-fit: contain;
+  object-position: center;
+  transition: all 0.5s ease-in-out;
+  user-select: none;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.card-info {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 5px;
+}
+
+.card-text {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+
+  p {
+    font-size: $textSize;
+    font-weight: $lightWeight;
+    text-wrap: nowrap;
+
+    &.sale {
+      color: $darkRed;
+    }
+  }
+
+  & > h3,
+  & > h2 {
+    font-size: $textSize;
+    color: $lightBlack;
+    font-weight: $lightWeight;
+    width: 100%;
+    flex: 1;
+  }
+
+  & > span {
+    color: $darkGray;
+    font-size: $spanSize;
+    font-weight: $lightWeight;
+  }
+}
+
+.card-info > .card-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border: 2px solid $lightBlack;
+  text-transform: uppercase;
+  font-size: $textSize;
+  // letter-spacing: 0.7px;
+  font-weight: $lightWeight;
+  color: $lightBlack;
+
+  transition: all 0.3s ease-in-out;
+
+  & > button {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0;
+    font-size: $textSize;
+    letter-spacing: 0.7px;
+    font-weight: $lightWeight;
+    color: $lightBlack;
+    outline: none;
+    transition: all 0.3s ease-in-out;
+
+    @media (hover: hover) {
+      &:hover {
+        background: $lightBlack;
+        color: $primary;
+      }
+    }
+
+    @media (hover: none) {
+      &:active {
+        background: $lightBlack;
+        color: $primary;
+      }
+    }
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+.card-button-disabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  background: $lightBlack;
+  border: 2px solid $lightBlack;
+  text-transform: uppercase;
+  font-size: $textSize;
+  letter-spacing: 0.7px;
+  font-weight: $lightWeight;
+  color: $background;
+  transition: all 0.3s ease-in-out;
+  cursor: not-allowed;
+}
+
+.card__action {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.card-sale {
+  color: $darkGray;
+  font-size: $textSize;
+  font-weight: $lightWeight;
+  text-decoration: line-through;
+}
+
+.card-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+
+  &.discount {
+    font-size: $textSize;
+    color: $darkRed;
+    font-weight: $lightWeight;
+    text-wrap: nowrap;
+  }
+
+  &.oldprice {
+    text-decoration: line-through;
+    font-size: $textSize;
+    color: $lightBlack;
+    font-weight: $lightWeight;
+    text-wrap: nowrap;
+  }
+
+  &.price {
+    font-size: $textSize;
+    color: $lightBlack;
+    font-weight: $lightWeight;
+    text-wrap: nowrap;
+  }
+}
+
+.card-status {
+  position: absolute;
+  top: 25px;
+  left: 0;
+  color: $lightPink;
+  padding: 5px 10px;
+  text-transform: uppercase;
+  font-size: $textSize;
+  font-weight: $lightWeight;
+
+  &.save {
+    background: $darkRed;
+  }
+
+  &.save-secondary {
+    background: $darkRed;
+    top: 50px;
+  }
+
+  &.discount {
+    background: $darkRed;
+  }
+
+  &.out {
+    background: $accentBackground;
+  }
+}
+
+//<-------------------------- End Card -------------------------->

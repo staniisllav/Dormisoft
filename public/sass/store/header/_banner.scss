@@ -1,0 +1,20 @@
+//<---------------------------- Banner Styles ---------------------------->
+.banner {
+  width: 100%;
+  padding: 5px 0;
+  background: $accentBackground;
+  transform-origin: top;
+  transition: transform 0.3s;
+  position: fixed;
+  top: 0;
+  z-index: 400;
+}
+
+.banner__container {
+  color: $accentText;
+  font-size: $textSize;
+  font-weight: $lightWeight;
+  text-align: center;
+}
+
+//<-------------------------- End Banner Styles -------------------------->

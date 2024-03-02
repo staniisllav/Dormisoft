@@ -1,1 +1,10 @@
+public/media/
+node_modules
+public/dist/.DS_Store
+.DS_Store
+storage/app/livewire-tmp
+public/dist/css/main.css.map
+public/dist/css/loading-screen.css.map
 
+public/.DS_Store
+bootstrap
