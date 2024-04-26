@@ -44,6 +44,7 @@ class ShowCategory extends Component
       'end_date' => $this->category->end_date,
       'sequence' => $this->category->sequence,
       'short_description' => $this->category->short_description,
+      'meta_description' => $this->category->meta_description,
       'long_description' => $this->category->long_description,
       'seo_title' => $this->category->seo_title,
       'seo_id' => $this->category->seo_id,
@@ -105,6 +106,9 @@ class ShowCategory extends Component
       if (array_key_exists('short_description', $category_new)) {
         $new->short_description = $category_new['short_description'];
       }
+      if (array_key_exists('meta_description', $category_new)) {
+        $new->meta_description = $category_new['meta_description'];
+      }
       if (array_key_exists('long_description', $category_new)) {
         $new->long_description = $category_new['long_description'];
       }
@@ -134,7 +138,7 @@ class ShowCategory extends Component
         $productcat->delete();
       }
     }
-    $subcategories = Subcategory::where('parrent_id', $id)->get();
+    $subcategories = Subcategory::where('parrent_id', $id)->orwhere('category_id', $id)->get();
     if ($subcategories != NULL) {
       foreach ($subcategories as $sub) {
         $sub->delete();

@@ -7,14 +7,27 @@
 	<!------------------------Breadcrumbs----------------------->
 	<div class="breadcrumbs container">
 		<a class="breadcrumbs__link" href="{{ url("/") }}">
-			Acasa
+			Acasă
 		</a>
+		@if (app()->has("global_show_on_breadcrumbs") && app('global_show_on_breadcrumbs') == 'true')
+
 		<a class="breadcrumbs__link" href="{{ url("/storeproducts") }}">
-			Produse
+			Toate produsele
 		</a>
+		@endif
 		<!-------------------If Category is appear------------------>
-		@if ($category)
-			<a class="breadcrumbs__link">{{ $category_details->name }}</a>
+		@if ($category != null && $category->id != app('global_default_category'))
+			@foreach ($category->getCategoryBreadcrumbs() as $breadcrumb)
+			@if ($breadcrumb["name"] === $category->name)
+				<a class="breadcrumbs__link" href="{{ route("products", ["categorySlug" => $category->seo_id !== null && $category->seo_id !== "" ? $category->seo_id : $category->id]) }}">
+				{{ $category->name }}
+			</a>
+			@else
+			<a class="breadcrumbs__link" href="{{ route("products", ["categorySlug" => $breadcrumb["slug"]]) }}">
+				{{ $breadcrumb["name"] }}
+			</a>
+			@endif
+			@endforeach
 		@endif
 		<!-----------------End If Category is appear---------------->
 	</div>
@@ -23,9 +36,9 @@
 	<!----------------------Categorie + detalii--------------------->
 	@if ($category)
 		<section class="section__header container">
-			<h1 class="section__title">{{ $category_details->name }}</h1>
+			<h1 class="section__title">{{ $category->name }}</h1>
 			<p class="section__text">
-				{!! $category_details->long_description !!}
+				{!! $category->long_description !!}
 			</p>
 		</section>
 	@endif
@@ -39,7 +52,7 @@
 				<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
 			</svg>
 		</button>
-		<input class="controls__search" type="text" wire:model="search" placeholder="Cauta produsul aici...">
+		<input class="controls__search" maxlength="100" type="text" name="search" id="search" wire:model="search" autocomplete="off" placeholder="Caută în listă...">
 		<button class="controls__button" id="sortOpen" aria-label="Open sort button">
 			<svg>
 				<line x1="21" y1="10" x2="7" y2="10"></line>
@@ -65,7 +78,7 @@
 				</button>
 			@endforeach
 			<button class="tag__button" wire:click="clearall()" class="filter__applied--clear">
-				Elimina toate filtrele-ul
+				Elimină toate filtrele
 				<svg>
 					<line x1="18" y1="6" x2="6" y2="18"></line>
 					<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -76,18 +89,19 @@
 	<!--------------------------End  Tags------------------------>
 	<!---------------------------------------------------------->
 	<!-------------------------Catalogue------------------------>
+  <h2></h2>
 	<section class="catalogue container">
 		@if ($products->isEmpty())
 			<p>Nu au fost produse gasite</p>
 		@else
 			@foreach ($products as $index => $product)
 				<div class="product">
-					<div @if ($loop->last) id="last_record" @endif class="card" role="listitem">
+					<div @if ($loop->last) id="last_record" @endif class="card" >
 						<a href="{{ route("product", ["product" => $product->seo_id !== null && $product->seo_id !== "" ? $product->seo_id : $product->id]) }}">
 							@if ($product->media->first() != null)
-								<img class="card-image" src="/{{ $product->media->first()->path }}{{ $product->media->first()->name }}" alt="{{ $product->media->first()->name }} {{ $product->name }}">
+								<img loading="lazy" class="card-image" src="/{{ $product->media->first()->path }}{{ $product->media->first()->name }}" alt="{{ $product->media->first()->name }} {{ $product->name }}">
 							@else
-								<img class="card-image" src="/images/store/default/default300.webp" alt="something wrong">
+								<img loading="lazy" class="card-image" src="/images/store/default/default300.webp" alt="something wrong">
 							@endif
 						</a>
 						<?php if ($product->product_prices->count() != 0) {
@@ -142,24 +156,24 @@
 								<span>{{ $product->short_description }}</span>
 							</div>
 							<div class="card-text">
-								<h3>{{ $product->name }}</h3>
+								<h3 class="card-title">{{ $product->name }}</h3>
 								<p class="card-price">
 									@if ($discount)
 										<span class="card-price discount">
 											@if ($product->product_prices->first())
 												{{ $price }}
-												{{ $product->product_prices->first()->pricelist->currency->name }}
+												{{ $product->product_prices->first()->pricelist->currency->symbol }}
 											@endif
 										</span>
 										<span class="card-price oldprice">
 											{{ $product->product_prices->first()->rrp_value }}
-											{{ $product->product_prices->first()->pricelist->currency->name }}
+											{{ $product->product_prices->first()->pricelist->currency->symbol }}
 										</span>
 									@else
 										<span>
 											@if ($product->product_prices->first())
 												{{ $price }}
-												{{ $product->product_prices->first()->pricelist->currency->name }}
+												{{ $product->product_prices->first()->pricelist->currency->symbol }}
 											@endif
 										</span>
 									@endif
@@ -179,7 +193,7 @@
 		@endif
 	</section>
 
-	@if ($products->count() >= $loadAmount)
+	@if ($products->total() >= $loadAmount)
 		<section class="container">
 			<button class="filter__apply" wire:click="loadMore" wire:loading.remove>Vezi mai mult!</button>
 		</section>
@@ -206,14 +220,12 @@
 				</button>
 			</div>
 			<button class="filter__top filter__top--button" wire:click="$set('showspecfilter', false)">
-				Afișează rezultate: <span>{{ $productCount }}</span>
+				Afișează rezultate: <span>{{ $products->total() }}</span>
 			</button>
 			<div wire:ignore class="filter__list">
-				@foreach ($filtervalues->groupBy("spec_id") as $values)
+				@foreach ($filtervalues->sortBy("spec.sequence")->groupBy("spec_id") as $values)
 					<div class="dropfilter">
 						<div class="dropfilter__button">
-							{{-- <div class="dropfilter__button--link"> --}}
-							{{-- </div> --}}
 							<button class="dropfilter__open" href="#">
 								<h4>{{ $values->first()->spec->name }}</h4>
 								<svg>
@@ -222,12 +234,16 @@
 							</button>
 						</div>
 						<div class="dropfilter__list">
-							@foreach ($values as $value)
-								<label class="dropfilter__link" for="{{ $value->id }}{{ $value->value }}">
-									<input type="checkbox" wire:model="selectedSpecValues.{{ $value->spec_id }}.{{ $value->value }}" wire:change="applyFilter" id="{{ $value->id }}{{ $value->value }}">
-									<h4>{{ $value->value }}</h4>
-								</label>
-							@endforeach
+							@foreach ($values->sortBy("sequence") as $value)
+    @php
+        $key = str_replace('.', '_', $value->value); // Replace dots with underscores in the key
+    @endphp
+    <label class="dropfilter__link" for="{{ $value->id }}{{ $value->value }}">
+        <input type="checkbox" wire:model="selectedSpecValues.{{ $value->spec_id }}.{{ $key }}" wire:change="applyFilter" id="{{ $value->id }}{{ $value->value }}">
+        <h4>{{ $value->value }}</h4>
+    </label>
+@endforeach
+
 						</div>
 					</div>
 				@endforeach
@@ -256,27 +272,27 @@
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort" value="best_selling" id="sort">
 				<label class="filter__link sort__item" for="sort">
-					<h4>Cele mai vandute</h4>
+					<h4>Cele mai populare</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort1" value="price_as" id="sort1">
 				<label class="filter__link sort__item" for="sort1">
-					<h4>Pret crescator</h4>
+					<h4>Preț crescător</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort2" value="price_ds" id="sort2">
 				<label class="filter__link sort__item" for="sort2">
-					<h4>Pret descrescator</h4>
+					<h4>Preț descrescător</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort3" value="quantity" id="sort3">
 				<label class="filter__link sort__item" for="sort3">
-					<h4>Disponibilitate (stock descrescator)</h4>
+					<h4>Disponibilitate (stoc descrescator)</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort8" value="quantity_as" id="sort8">
 				<label class="filter__link sort__item" for="sort8">
-					<h4>Disponibilitate (stock crescator)</h4>
+					<h4>Disponibilitate (stoc crescator)</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort4" value="name_az" id="sort4">
@@ -291,12 +307,12 @@
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort6" value="date_old_new" id="sort6">
 				<label class="filter__link sort__item" for="sort6">
-					<h4>Data, de la vechi la nou</h4>
+					<h4>Dată, de la vechi la nou</h4>
 				</label>
 
 				<input class="filter__input" wire:model="orderBy" type="radio" name="sort7" value="date_new_old" id="sort7">
 				<label class="filter__link sort__item" for="sort7">
-					<h4>Data, de la nou la vechi</h4>
+					<h4>Dată, de la nou la vechi</h4>
 				</label>
 			</div>
 		</div>

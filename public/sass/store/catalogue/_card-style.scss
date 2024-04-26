@@ -6,10 +6,16 @@
   scroll-snap-align: start;
   justify-content: space-between;
   position: relative;
-  gap: 15px;
   width: 100%;
   height: 100%;
   box-shadow: $boxShadow;
+  gap: 0px;
+  overflow: hidden;
+
+  @media (min-width: map-get($grid-breakpoints, md)) {
+    gap: 15px;
+  }
+
 
   &.flying {
     z-index: 200;
@@ -23,15 +29,59 @@
   }
 }
 
+.card--category{
+  flex-direction: row;
+  text-decoration: none;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 5px;
+
+  & .card-image {
+    width: 100%;
+    height: 125px;
+    object-fit: contain;
+    object-position: center;
+    transition: all 0.5s ease-in-out;
+    user-select: none;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+  }
+  &>.card-info{
+    justify-content: space-evenly;
+
+    &>.card-title{
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    &>p{
+      font-size: 14px;
+      font-weight: 400;
+      color: $lightBlack;
+      text-wrap: balance;
+
+      &>b{
+        font-size: 14px;
+        font-weight: 400;
+        color: $lightBlack;
+      }
+    }
+  }
+}
+
 .card-image {
   width: 100%;
-  height: 300px;
+  height: 225px;
   object-fit: contain;
   object-position: center;
   transition: all 0.5s ease-in-out;
   user-select: none;
   pointer-events: none;
   mix-blend-mode: multiply;
+
+  @media (min-width: map-get($grid-breakpoints, md)) {
+    height: 300px;
+  }
 }
 
 .card-info {
@@ -62,6 +112,12 @@
     &.sale {
       color: $darkRed;
     }
+    @media (max-width: map-get($grid-breakpoints, md)) {
+      font-size: 12px;
+      font-weight: 500;
+      width: 100%;
+      text-align: right;
+    }
   }
 
   & > h3,
@@ -71,6 +127,7 @@
     font-weight: $lightWeight;
     width: 100%;
     flex: 1;
+    text-transform: none;
   }
 
   & > span {
@@ -78,58 +135,9 @@
     font-size: $spanSize;
     font-weight: $lightWeight;
   }
-}
-
-.card-info > .card-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 40px;
-  background: transparent;
-  border: 2px solid $lightBlack;
-  text-transform: uppercase;
-  font-size: $textSize;
-  // letter-spacing: 0.7px;
-  font-weight: $lightWeight;
-  color: $lightBlack;
-
-  transition: all 0.3s ease-in-out;
-
-  & > button {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    text-transform: uppercase;
-    border: none;
-    border-radius: 0;
-    font-size: $textSize;
-    letter-spacing: 0.7px;
-    font-weight: $lightWeight;
-    color: $lightBlack;
-    outline: none;
-    transition: all 0.3s ease-in-out;
-
-    @media (hover: hover) {
-      &:hover {
-        background: $lightBlack;
-        color: $primary;
-      }
-    }
-
-    @media (hover: none) {
-      &:active {
-        background: $lightBlack;
-        color: $primary;
-      }
-    }
-  }
-
-  &:active {
-    transform: scale(0.9);
+  @media (max-width: map-get($grid-breakpoints, md)) {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -168,6 +176,7 @@
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
+  text-transform: none !important;
 
   &.discount {
     font-size: $textSize;
@@ -221,3 +230,187 @@
 }
 
 //<-------------------------- End Card -------------------------->
+//<----------------------ADD TO CART BUTTON---------------------->
+.card__button--wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+}
+
+.card__button {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $lightBlack;
+  text-transform: uppercase;
+  text-wrap: nowrap;
+  border: none;
+  border-radius: 0;
+  font-size: $textSize;
+  letter-spacing: 0.7px;
+  font-weight: $lightWeight;
+  color: $lightBlack;
+  outline: none;
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+
+  @media (hover: hover) {
+    &:hover {
+      background: $lightBlack;
+      color: $primary;
+    }
+  }
+
+  @media (hover: none) {
+    &:active {
+      background: $lightBlack;
+      color: $primary;
+    }
+  }
+  &:active {
+    transform: scale(0.8);
+  }
+
+	&.in {
+    // animation 2s
+    $timing: 1500ms;
+		& > .card__button--text {
+			animation: textIn $timing ease-out forwards;
+		}
+		& > .card__button--cart {
+			animation: cartIn $timing ease-out forwards calc($timing / 12);
+		}
+		& > .card__button--gift {
+			animation: giftIn $timing ease-out forwards calc($timing / 12);
+		}
+
+	}
+	&.out {
+	}
+
+	&::after {
+		content: '';
+		left: 50%;
+		bottom: 5px;
+		position: absolute;
+		width: 90%;
+		height: 2px;
+		transform: translateX(-50%);
+		background: #fafafa;
+		opacity: 1;
+	}
+}
+.card__button--cart {
+	position: absolute;
+	bottom: 5px;
+	left: -150%;
+	transform: translateX(-50%);
+  & >svg{
+    stroke: $background;
+  }
+}
+.card__button--gift {
+	position: absolute;
+	bottom: 100px;
+	left: 49%;
+	scale: 0.5;
+	transform: translateX(-50%);
+  & >svg{
+    stroke: $background;
+  }
+}
+.card__button--text {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: #fafafa;
+	font-size: 14px;
+	font-weight: 500;
+	text-transform: uppercase;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: $lightBlack;
+  z-index: 10;
+
+  @media (max-width: map-get($grid-breakpoints, sm)) {
+    font-size: 12px;
+  }
+}
+@keyframes textIn {
+	0% {
+		top: 50%;
+		left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+	}
+	20% {
+		top: 150%;
+		left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+	}
+	80% {
+		top: 150%;
+		left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+	}
+	100% {
+		top: 50%;
+		left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+
+@keyframes cartIn {
+  0% {
+		bottom: 5px;
+		left: -150%;
+		transform: translateX(-50%);
+	}
+	30% {
+		bottom: 5px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+  70% {
+		bottom: 5px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+  100% {
+		bottom: 5px;
+		left: 150%;
+		transform: translateX(-50%);
+	}
+}
+
+@keyframes giftIn {
+	0% {
+		bottom: 100px;
+    left: 50%;
+	}
+	30% {
+		bottom: 8px;
+    left: 50%;
+	}
+  70% {
+		bottom: 8px;
+    left: 50%;
+	}
+	100% {
+		bottom: 5px;
+		left: 150%;
+		transform: translateX(-50%);
+	}
+}
+
+
+//<--------------------END ADD TO CART BUTTON-------------------->

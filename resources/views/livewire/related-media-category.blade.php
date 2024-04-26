@@ -82,7 +82,7 @@
 												<tr>
 													<td class="wid-3">
 														@if (str_starts_with($media->getMimeType(), "image"))
-															<img src="data:{{ $media->getMimeType() }};base64,{{ base64_encode($media->get()) }}" width="50px">
+															<img loading="lazy" src="data:{{ $media->getMimeType() }};base64,{{ base64_encode($media->get()) }}" width="50px">
 														@elseif (str_starts_with($media->getMimeType(), "video"))
 															<video width="100px" controls>
 																<source src="data:{{ $media->getMimeType() }};base64,{{ base64_encode($media->get()) }}" type="{{ $media->getMimeType() }}">
@@ -157,13 +157,13 @@
 									</table>
 									<table class="table" style="margin-top: 1.5rem">
 										<tbody>
-											@for ($i = 1; $i <= $row; $i++)
+											@for ($i = 0; $i <= $row; $i++)
 												<tr>
 													<td class="wid-3">
 														<input required type="text" placeholder="Media name" class="table__edit" wire:model="file_name.{{ $i }}">
 													</td>
 													<td class="wid-1">
-														<input placeholder="Ex: 1,2,3.." required type="number" min="0" class="table__edit" wire:model="file_sequences.{{ $i }}">
+														<input required placeholder="Ex: 1,2,3.." required type="number" min="0" class="table__edit" wire:model="file_sequences.{{ $i }}">
 													</td>
 													<td class="wid-4">
 														<input required placeholder="Media external link" type="url" class="table__edit" wire:model="file_link.{{ $i }}">
@@ -373,7 +373,7 @@
 										@if ($this->showColumn("Media"))
 											<td data-title="Media">
 												@if (in_array($file->extension, ["jpg", "jpeg", "png", "gif", "svg", "jfif", "webp"]))
-													<img src="/{{ $file->path . $file->name }}" alt="{{ $file->name }}" width="50">
+													<img loading="lazy" src="/{{ $file->path . $file->name }}" alt="{{ $file->name }}" width="50">
 												@else
 													A problem with media
 												@endif

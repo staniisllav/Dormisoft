@@ -26,7 +26,7 @@
   font-size: $textSize;
   font-weight: $lightWeight;
   border: 1px solid $lightBlack;
-  text-transform: capitalize;
+  text-transform: uppercase;
   border-radius: 3px;
   padding: 0px 10px;
   transition: all 0.3s ease-in-out;
@@ -40,6 +40,11 @@
     background-color: $lightBlack;
     color: $background;
   }
+}
+
+.tab__button--long {
+  width: 100%;
+  // text-transform: none;
 }
 
 .tab__content {

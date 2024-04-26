@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire;
 
+use Stripe\Stripe;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Account;
@@ -10,6 +11,8 @@ use App\Models\Voucher;
 use Livewire\Component;
 use App\Models\Cart_Item;
 use App\Models\Order_Item;
+use Stripe\Checkout\Session;
+use GuzzleHttp\Client;
 
 class StoreOrder extends Component
 {
@@ -23,7 +26,9 @@ class StoreOrder extends Component
   public $card;
   public $ordin;
   public $orderNumber;
-  protected $debug = true;
+  public $payment_cancel = false;
+  public $new_order;
+  public $modification = false;
 
   // individual declaration
   public $individual = true;
@@ -78,14 +83,15 @@ class StoreOrder extends Component
   public $juridic_shipping_city;
   public $juridic_shipping_zipcode;
 
-  public $rtc = true;
-  public $crd = false;
+  public $rtc = false;
+  public $crd = true;
   public $invoice = false;
   public $validatequantity = true;
   public $payment;
   protected $listeners = [
     'nocard' => 'mount',
     'cartUpdated' => 'mount',
+    'isdisabled' => 'checkIsDisabled'
   ];
 
   private function getSessionId()
@@ -99,13 +105,18 @@ class StoreOrder extends Component
     }
   }
 
+  public function checkIsDisabled()
+  {
+    $this->modification = true;
+  }
+
   public function getCartProperty()
   {
-    return Cart::select('id', 'quantity_amount', 'currency_id', 'sum_amount', 'voucher_id', 'final_amount', 'voucher_value', 'status_id')
+    return Cart::select('id', 'quantity_amount', 'currency_id', 'delivery_price', 'sum_amount', 'voucher_id', 'final_amount', 'voucher_value', 'status_id')
       ->where('session_id', $this->session_id)
       ->where('status_id', '!=', app('global_cart_closed'))
       ->with(['voucher' => function ($query) {
-        $query->select('code', 'id', 'percent', 'value');
+        $query->select('code', 'id', 'percent', 'single_use', 'value', 'start_date', 'end_date');
       }])
       ->latest()
       ->first() ?? null;
@@ -118,14 +129,14 @@ class StoreOrder extends Component
         ->where('cart_id', $this->cart->id)
         ->with([
           'product' => function ($query) {
-            $query->select('id', 'name', 'seo_id', 'quantity')->with([
+            $query->select('id', 'name', 'seo_id', 'quantity', 'active', 'start_date', 'end_date')->with([
               'media' => function ($query) {
                 $query->select('path', 'name')->where('type', 'min');
               },
               'product_prices' => function ($query) {
                 $query->select('product_id', 'value', 'pricelist_id')
                   ->with(['pricelist' => function ($query) {
-                    $query->select('id', 'currency_id')->with('currency:id,name');
+                    $query->select('id', 'currency_id')->with('currency:id,name,symbol');
                   }]);
               }
             ]);
@@ -208,7 +219,7 @@ class StoreOrder extends Component
       $this->cart->update([
         'status_id' => app('global_cart_checkoutdetails')
       ]);
-      $this->dispatchBrowserEvent('next_step');
+      $this->dispatchBrowserEvent('goup');
     }
   }
 
@@ -221,37 +232,35 @@ class StoreOrder extends Component
           'required',
           'min:2',
           'max:20',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/',
-          'regex:/^[a-zA-Z\s]*$/'
+          'regex:/^[\p{L}\s]+$/u',
         ],
         'individual_billing_last' => [
           'required',
           'min:2',
           'max:20',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/',
-          'regex:/^[a-zA-Z\s]*$/'
+          'regex:/^[\p{L}\s]+$/u',
+
         ],
         'individual_billing_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}[-.\s]?\d{1,10}$/',
         'individual_billing_email' => 'required|email',
         'individual_billing_address1' => [
           'required',
           'min:1',
-          'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'max:200',
         ],
         'individual_billing_county' =>
         [
           'required',
           'min:1',
           'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'regex:/^[\p{L}\s]+$/u',
         ],
         'individual_billing_city' =>
         [
           'required',
           'min:1',
           'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'regex:/^[\p{L}\s]+$/u',
         ],
         'individual_billing_zipcode' =>
         [
@@ -268,15 +277,13 @@ class StoreOrder extends Component
             'required',
             'min:2',
             'max:20',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z\s]*$/'
+            'regex:/^[\p{L}\s]+$/u',
           ],
           'individual_shipping_last' => [
             'required',
             'min:2',
             'max:20',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z\s]*$/'
+            'regex:/^[\p{L}\s]+$/u',
           ],
           'individual_billing_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}[-.\s]?\d{1,10}$/',
           'individual_shipping_email' => 'required|email',
@@ -284,22 +291,21 @@ class StoreOrder extends Component
           [
             'required',
             'min:1',
-            'max:100',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+            'max:200',
           ],
           'individual_shipping_county' =>
           [
             'required',
             'min:1',
             'max:100',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+            'regex:/^[\p{L}\s]+$/u',
           ],
           'individual_shipping_city' =>
           [
             'required',
             'min:1',
             'max:100',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+            'regex:/^[\p{L}\s]+$/u',
           ],
           'individual_shipping_zipcode' =>
           [
@@ -320,52 +326,52 @@ class StoreOrder extends Component
           'required',
           'min:2',
           'max:20',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/',
-          'regex:/^[a-zA-Z\s]*$/'
+          'regex:/^[\p{L}\s]+$/u',
         ],
         'juridic_billing_last' => [
           'required',
           'min:2',
           'max:20',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/',
-          'regex:/^[a-zA-Z\s]*$/'
+          'regex:/^[\p{L}\s]+$/u',
         ],
-        'juridic_billing_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}$/',
+        'juridic_billing_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}[-.\s]?\d{1,10}$/',
         'juridic_billing_email' => 'required|email',
         'juridic_billing_company_name' => [
           'required',
-          'regex:/^[a-zA-Z0-9]*$/',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/'
+          'min:1',
+          'max:100',
+          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/'
         ],
         'juridic_billing_registration_code' => [
           'required',
-          'regex:/^[a-zA-Z0-9]*$/',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/'
+          'min:1',
+          'max:100',
+          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/'
         ],
         'juridic_billing_registration_number' => [
           'required',
-          'regex:/^[0-9]*$/',
-          'regex:/^[^\s]+(\s+[^\s]+)*$/'
+          'min:1',
+          'max:100',
+          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/'
         ],
         'juridic_billing_address1' => [
           'required',
           'min:1',
-          'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'max:200',
         ],
         'juridic_billing_county' =>
         [
           'required',
           'min:1',
           'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'regex:/^[\p{L}\d\s.]+$/u',
         ],
         'juridic_billing_city' =>
         [
           'required',
           'min:1',
           'max:100',
-          'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
+          'regex:/^[\p{L}\d\s.]+$/u',
         ],
         'juridic_billing_zipcode' =>
         [
@@ -373,7 +379,7 @@ class StoreOrder extends Component
           'min:1',
           'max:100',
           'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
-        ],
+        ]
       ];
       if (!$this->juridic_identic) {
         $shippingRules = [
@@ -381,45 +387,38 @@ class StoreOrder extends Component
             'required',
             'min:2',
             'max:20',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z\s]*$/'
+            'regex:/^[\p{L}\s]+$/u',
           ],
           'juridic_shipping_last' => [
             'required',
             'min:2',
             'max:20',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z\s]*$/'
+            'regex:/^[\p{L}\s]+$/u',
           ],
-          'juridic_shipping_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}$/',
+          'juridic_shipping_phone' => 'required|regex:/^\+?\d{1,4}?\s?\(?\d{1,4}\)?[-.\s]?\d{1,10}[-.\s]?\d{1,10}$/',
           'juridic_shipping_email' => 'required|email',
           'juridic_shipping_address1' => [
             'required',
             'min:1',
-            'max:100',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]*$/'
+            'max:200',
           ],
           'juridic_shipping_county' => [
             'required',
             'min:1',
             'max:100',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]*$/'
+            'regex:/^[\p{L}\d\s.]+$/u',
           ],
           'juridic_shipping_city' => [
             'required',
             'min:1',
             'max:100',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]*$/'
+            'regex:/^[\p{L}\d\s.]+$/u',
           ],
           'juridic_shipping_zipcode' => [
             'required',
             'min:1',
             'max:100',
-            'regex:/^[^\s]+(\s+[^\s]+)*$/',
-            'regex:/^[a-zA-Z0-9\/., _\'`-]*$/'
+            'regex:/^[a-zA-Z0-9\/., _\'`-]+$/',
           ],
         ];
         $rules = array_merge($rules, $shippingRules);
@@ -433,7 +432,7 @@ class StoreOrder extends Component
     if ($item == 'rtc') {
       $this->payment = $this->cash;
       $this->rtc = true;
-      $this->crd = true;
+      $this->crd = false;
       $this->invoice = false;
     }
     if ($item == 'crd') {
@@ -452,7 +451,123 @@ class StoreOrder extends Component
 
   public function mount()
   {
+    $this->modification = false;
     $this->session_id = $this->getSessionId();
+    if (session()->has('paymentcancel')) {
+      $this->payment_cancel = true;
+      $this->step = 2;
+      session()->forget('paymentcancel');
+    }
+
+
+    if (session()->has('paymentsucces')) {
+      if ($this->cart->voucher && $this->cart->voucher->single_use) {
+        Voucher::where('id', $this->cart->voucher_id)->update([
+          'status_id' => app('global_voucher_closed')
+        ]);
+      }
+      $this->cart->update([
+        'status_id' => app('global_cart_closed')
+      ]);
+      $order = Order::where('session_id', $this->session_id)->where('status_id', app('global_order_check_payment'))->first();
+      $order->status_id = app('global_order_processing');
+      $this->orderNumber = $order->order_number;
+      $order->save();
+      $this->new_order = $order;
+      foreach ($order->orders as $item) {
+        $item->product->quantity -= $item->quantity;
+        $item->product->save();
+      }
+      $this->step = 3;
+      if (app()->has("global_send_to_salesforce") && app('global_send_to_salesforce') == 'true') {
+        //request to salesforce
+        $order_lines = [];
+        foreach ($order->orders as $sub_order) {
+          $order_line = [
+            '00N9N000000QGYY' => $sub_order->order_id,
+            '00N9N000000QGYT' => $sub_order->id,
+            '00N9N000000QGYd' => $sub_order->product_id,
+            '00N9N000000QGZC' => $sub_order->quantity,
+            '00NQF000000Yzc9' => $sub_order->price
+          ];
+          $order_lines[] = $order_line;
+        }
+        $client = new Client();
+        $order_lines_string = json_encode($order_lines);
+        $hashed = base64_encode($order->order_number . ";" . $order->account->email);
+
+        $client->post('https://webto.salesforce.com/servlet/servlet.WebToCase', [
+          'headers' => [
+            'Accept' => 'application/json',
+          ],
+          'query' => [
+            'orgid' => '00D09000008XPQu',
+            'debug' => '1',
+            'debugEmail' => 'iosif.relia@eztemcorp.com',
+            'subject' => app()->has('global_site_name') && app('global_site_name') != "" ?
+              app('global_site_name') . ' Order_id:' . $order->id :
+              'Order_id:' . $order->id,
+            '00N9N000000QGVe' => app()->has('global_site_url') && app('global_site_url') != "" ?
+              app('global_site_url') : 'Verifica site url-ul proiectului',
+
+            'type' => 'Store Order Master',
+
+            //hasedinfo
+            '00NQF000000VDVd' => $hashed,
+
+
+            //order
+            '00N9N000000QGVZ' => $order->id,
+            '00N9N000000QGVj' => $order->order_number,
+            '00N9N000000QGVo' => $order->status->name,
+            '00N9N000000QGVt' => $order->currency->name,
+            '00N9N000000QGVy' => $order->payment->name,
+            '00N9N000000QGW3' => $order->voucher->code ?? "",
+            '00N9N000000QGW8' => $order->voucher_value,
+            '00N9N000000QGWI' => $order->delivery_price,
+            '00N9N000000QGWN' => $order->final_amount,
+
+            //orderlines
+            '00N9N000000QGYi' => $order_lines_string,
+
+            //account
+            '00N9N000000QGWS' => $order->account->id,
+            '00N9N000000QGYx' => $order->account->type,
+            '00N9N000000QGWX' => $order->account->company_name ?? "",
+            '00N9N000000QGWc' => $order->account->registration_code ?? "",
+            '00N9N000000QGWh' => $order->account->registration_number ?? "",
+            '00N9N000000QGWr' => $order->account->bank_name ?? "",
+            '00N9N000000QGWw' => $order->account->account ?? "",
+            //billing adress
+            '00N9N000000QGX1' => $order->account->addresses->where('type', 'billing')->first()->address1,
+            '00N9N000000QGX6' => $order->account->addresses->where('type', 'billing')->first()->address2,
+            '00N9N000000QGXB' => $order->account->addresses->where('type', 'billing')->first()->country,
+            '00N9N000000QGXG' => $order->account->addresses->where('type', 'billing')->first()->county,
+            '00N9N000000QGXL' => $order->account->addresses->where('type', 'billing')->first()->city,
+            '00N9N000000QGXQ' => $order->account->addresses->where('type', 'billing')->first()->zipcode,
+            '00N9N000000QGXV' => $order->account->addresses->where('type', 'billing')->first()->first_name ?? "",
+            '00N9N000000QGXa' => $order->account->addresses->where('type', 'billing')->first()->last_name ?? "",
+            '00N9N000000QGXf' => $order->account->addresses->where('type', 'billing')->first()->phone ?? "",
+            '00N9N000000QGXk' => $order->account->addresses->where('type', 'billing')->first()->email ?? "",
+            //shipping adress
+            '00N9N000000QGXp' => $order->account->addresses->where('type', 'shipping')->first()->address1,
+            '00N9N000000QGXu' => $order->account->addresses->where('type', 'shipping')->first()->address2,
+            '00N9N000000QGXz' => $order->account->addresses->where('type', 'shipping')->first()->country,
+            '00N9N000000QGWi' => $order->account->addresses->where('type', 'shipping')->first()->county,
+            '00N9N000000QGY4' => $order->account->addresses->where('type', 'shipping')->first()->city,
+            '00N9N000000QGWE' => $order->account->addresses->where('type', 'shipping')->first()->zipcode,
+            '00N9N000000QGY9' => $order->account->addresses->where('type', 'shipping')->first()->first_name ?? "",
+            '00N9N000000QGYE' => $order->account->addresses->where('type', 'shipping')->first()->last_name ?? "",
+            '00N9N000000QGYJ' => $order->account->addresses->where('type', 'shipping')->first()->phone ?? "",
+            '00N9N000000QGYO' => $order->account->addresses->where('type', 'shipping')->first()->email ?? "",
+          ],
+          'curl' => [
+            CURLOPT_SSL_VERIFYPEER => false,
+          ],
+        ]);
+      }
+      session()->forget('paymentsucces');
+    }
 
     if ($this->cartItems->isEmpty() || !$this->cart) {
       $this->back = true;
@@ -463,62 +578,72 @@ class StoreOrder extends Component
       $this->is_account = null;
     }
     if ($this->is_account != null) {
-      $account = Account::with('addresses', 'orders')->find($this->is_account);
-      if ($account->type == 'individual') {
-        $this->individual = true;
-        $this->individual_billing_first = $account->first_name;
-        $this->individual_billing_last = $account->last_name;
-        $this->individual_billing_phone = $account->phone;
-        $this->individual_billing_email = $account->email;
-        $this->individual_billing_address1 = $account->addresses->where('type', 'billing')->first()->address1;
-        $this->individual_billing_address2 = $account->addresses->where('type', 'billing')->first()->address2;
-        $this->individual_billing_country = $account->addresses->where('type', 'billing')->first()->country;
-        $this->individual_billing_county = $account->addresses->where('type', 'billing')->first()->county;
-        $this->individual_billing_city = $account->addresses->where('type', 'billing')->first()->city;
-        $this->individual_billing_zipcode = $account->addresses->where('type', 'billing')->first()->zipcode;
-        $this->individual_shipping_first = $account->addresses->where('type', 'shipping')->first()->first_name;
-        $this->individual_shipping_last = $account->addresses->where('type', 'shipping')->first()->last_name;
-        $this->individual_shipping_phone = $account->addresses->where('type', 'shipping')->first()->phone;
-        $this->individual_shipping_email = $account->addresses->where('type', 'shipping')->first()->email;
-        $this->individual_shipping_address1 = $account->addresses->where('type', 'shipping')->first()->address1;
-        $this->individual_shipping_address2 = $account->addresses->where('type', 'shipping')->first()->address2;
-        $this->individual_shipping_country = $account->addresses->where('type', 'shipping')->first()->country;
-        $this->individual_shipping_county = $account->addresses->where('type', 'shipping')->first()->county;
-        $this->individual_shipping_city = $account->addresses->where('type', 'shipping')->first()->city;
-        $this->individual_shipping_zipcode = $account->addresses->where('type', 'shipping')->first()->zipcode;
+      $account = Account::with('addresses', 'orders')->find($this->is_account) ?? null;
+      if ($account == null) {
+        unset($_COOKIE['accountId']);
+        $this->is_account = null;
       } else {
-        $this->juridic = true;
-        $this->juridic_billing_first = $account->first_name;
-        $this->juridic_billing_last = $account->last_name;
-        $this->juridic_billing_phone = $account->phone;
-        $this->juridic_billing_email = $account->email;
-        $this->juridic_billing_company_name = $account->company_name;
-        $this->juridic_billing_registration_code = $account->registration_code;
-        $this->juridic_billing_registration_number = $account->registration_number;
-        $this->juridic_billing_bank = $account->bank_name;
-        $this->juridic_billing_account = $account->account;
-        $this->juridic_billing_address1 = $account->addresses->where('type', 'billing')->first()->address1;
-        $this->juridic_billing_address2 = $account->addresses->where('type', 'billing')->first()->address2;
-        $this->juridic_billing_country = $account->addresses->where('type', 'billing')->first()->country;
-        $this->juridic_billing_county = $account->addresses->where('type', 'billing')->first()->county;
-        $this->juridic_billing_city = $account->addresses->where('type', 'billing')->first()->city;
-        $this->juridic_billing_zipcode = $account->addresses->where('type', 'billing')->first()->zipcode;
-        $this->juridic_shipping_first = $account->addresses->where('type', 'shipping')->first()->first_name;
-        $this->juridic_shipping_last = $account->addresses->where('type', 'shipping')->first()->last_name;
-        $this->juridic_shipping_phone = $account->addresses->where('type', 'shipping')->first()->phone;
-        $this->juridic_shipping_email = $account->addresses->where('type', 'shipping')->first()->email;
-        $this->juridic_shipping_address1 = $account->addresses->where('type', 'shipping')->first()->address1;
-        $this->juridic_shipping_address2 = $account->addresses->where('type', 'shipping')->first()->address2;
-        $this->juridic_shipping_country = $account->addresses->where('type', 'shipping')->first()->country;
-        $this->juridic_shipping_county = $account->addresses->where('type', 'shipping')->first()->county;
-        $this->juridic_shipping_city = $account->addresses->where('type', 'shipping')->first()->city;
-        $this->juridic_shipping_zipcode = $account->addresses->where('type', 'shipping')->first()->zipcode;
+
+        if ($account->type == 'individual') {
+          $this->individual = true;
+          $this->juridic = false;
+
+          $this->individual_billing_first = $account->first_name;
+          $this->individual_billing_last = $account->last_name;
+          $this->individual_billing_phone = $account->phone;
+          $this->individual_billing_email = $account->email;
+          $this->individual_billing_address1 = $account->addresses->where('type', 'billing')->first()->address1;
+          $this->individual_billing_address2 = $account->addresses->where('type', 'billing')->first()->address2;
+          $this->individual_billing_country = $account->addresses->where('type', 'billing')->first()->country;
+          $this->individual_billing_county = $account->addresses->where('type', 'billing')->first()->county;
+          $this->individual_billing_city = $account->addresses->where('type', 'billing')->first()->city;
+          $this->individual_billing_zipcode = $account->addresses->where('type', 'billing')->first()->zipcode;
+          $this->individual_shipping_first = $account->addresses->where('type', 'shipping')->first()->first_name;
+          $this->individual_shipping_last = $account->addresses->where('type', 'shipping')->first()->last_name;
+          $this->individual_shipping_phone = $account->addresses->where('type', 'shipping')->first()->phone;
+          $this->individual_shipping_email = $account->addresses->where('type', 'shipping')->first()->email;
+          $this->individual_shipping_address1 = $account->addresses->where('type', 'shipping')->first()->address1;
+          $this->individual_shipping_address2 = $account->addresses->where('type', 'shipping')->first()->address2;
+          $this->individual_shipping_country = $account->addresses->where('type', 'shipping')->first()->country;
+          $this->individual_shipping_county = $account->addresses->where('type', 'shipping')->first()->county;
+          $this->individual_shipping_city = $account->addresses->where('type', 'shipping')->first()->city;
+          $this->individual_shipping_zipcode = $account->addresses->where('type', 'shipping')->first()->zipcode;
+        } else {
+          $this->juridic = true;
+          $this->individual = false;
+
+          $this->juridic_billing_first = $account->first_name;
+          $this->juridic_billing_last = $account->last_name;
+          $this->juridic_billing_phone = $account->phone;
+          $this->juridic_billing_email = $account->email;
+          $this->juridic_billing_company_name = $account->company_name;
+          $this->juridic_billing_registration_code = $account->registration_code;
+          $this->juridic_billing_registration_number = $account->registration_number;
+          $this->juridic_billing_bank = $account->bank_name;
+          $this->juridic_billing_account = $account->account;
+          $this->juridic_billing_address1 = $account->addresses->where('type', 'billing')->first()->address1;
+          $this->juridic_billing_address2 = $account->addresses->where('type', 'billing')->first()->address2;
+          $this->juridic_billing_country = $account->addresses->where('type', 'billing')->first()->country;
+          $this->juridic_billing_county = $account->addresses->where('type', 'billing')->first()->county;
+          $this->juridic_billing_city = $account->addresses->where('type', 'billing')->first()->city;
+          $this->juridic_billing_zipcode = $account->addresses->where('type', 'billing')->first()->zipcode;
+          $this->juridic_shipping_first = $account->addresses->where('type', 'shipping')->first()->first_name;
+          $this->juridic_shipping_last = $account->addresses->where('type', 'shipping')->first()->last_name;
+          $this->juridic_shipping_phone = $account->addresses->where('type', 'shipping')->first()->phone;
+          $this->juridic_shipping_email = $account->addresses->where('type', 'shipping')->first()->email;
+          $this->juridic_shipping_address1 = $account->addresses->where('type', 'shipping')->first()->address1;
+          $this->juridic_shipping_address2 = $account->addresses->where('type', 'shipping')->first()->address2;
+          $this->juridic_shipping_country = $account->addresses->where('type', 'shipping')->first()->country;
+          $this->juridic_shipping_county = $account->addresses->where('type', 'shipping')->first()->county;
+          $this->juridic_shipping_city = $account->addresses->where('type', 'shipping')->first()->city;
+          $this->juridic_shipping_zipcode = $account->addresses->where('type', 'shipping')->first()->zipcode;
+        }
       }
     }
     $this->cash = app('global_cash');
     $this->card = app('global_card_stripe');
     $this->ordin = app('global_ordin');
-    $this->payment = $this->cash;
+    $this->payment = $this->card;
 
     if ($this->step == 2) {
       $this->cart->update([
@@ -558,8 +683,14 @@ class StoreOrder extends Component
 
     if ($this->cartitems && ($this->cart->status_id == app('global_cart_checkoutdetails'))) {
       if ($this->cart->voucher) {
-        if (($this->cart->voucher->first()->status_id == app('global_voucher_closed')) || ($this->cart->voucher->first()->start_date > now()) || ($this->cart->voucher->first()->end_date < now())) {
-          $this->dispatchBrowserEvent('alert__modal');
+        if (($this->cart->voucher->status_id == app('global_voucher_closed')) || ($this->cart->voucher->start_date > now()->format('Y-m-d')) || ($this->cart->voucher->end_date < now()->format('Y-m-d'))) {
+
+          if (app()->has('global_order_error_voucher')) {
+            $message = app('global_order_error_voucher');
+          } else {
+            $message = "Vă rog verificați detaliile comenzii!";
+          }
+          $this->dispatchBrowserEvent('alert__modal', ['message' => $message]);
           $this->cart->update([
             'final_amount' => ($this->cart->sum_amount + app('global_delivery_price')),
             'voucher_id' => null,
@@ -572,14 +703,35 @@ class StoreOrder extends Component
       foreach ($this->cartitems as $item) {
         if ($item->quantity > $item->product->quantity) {
           $this->validatequantity = false;
-          $this->dispatchBrowserEvent('alert__modal');
+          if (app()->has('global_order_error_quantity')) {
+            $message = app('global_order_error_quantity');
+          } else {
+            $message = "Vă rog verificați detaliile comenzii!";
+          }
+          $this->dispatchBrowserEvent('alert__modal', ['message' => $message]);
+          return;
+        }
+      }
+      foreach ($this->cartitems as $item) {
+        if (($item->product->active != true) || ($item->product->start_date > now()->format('Y-m-d')) || ($item->product->end_date < now()->format('Y-m-d'))) {
+          if (app()->has('global_order_error_active')) {
+            $message = app('global_order_error_active');
+          } else {
+            $message = "Vă rog verificați detaliile comenzii!";
+          }
+          $this->dispatchBrowserEvent('alert__modal', ['message' => $message]);
           return;
         }
       }
     } else {
       $this->emit('cartUpdated');
       $this->validatequantity = false;
-      $this->dispatchBrowserEvent('alert__modal');
+      if (app()->has('global_order_error_cart')) {
+        $message = app('global_order_error_cart');
+      } else {
+        $message = "Vă rog verificați detaliile comenzii!";
+      }
+      $this->dispatchBrowserEvent('alert__modal', ['message' => $message]);
       return;
     }
     if ($this->validatequantity) {
@@ -597,6 +749,10 @@ class StoreOrder extends Component
             'updated_at' => now(),
           ]);
           Address::where('account_id', $this->is_account)->where('type', 'billing')->update([
+            'first_name' => $this->individual_billing_first,
+            'last_name' => $this->individual_billing_last,
+            'phone' => $this->individual_billing_phone,
+            'email' => $this->individual_billing_email,
             'address1' => $this->individual_billing_address1,
             'address2' => $this->individual_billing_address2,
             'country' => $this->individual_billing_country,
@@ -632,6 +788,10 @@ class StoreOrder extends Component
 
           Address::create([
             'account_id' => $account->id,
+            'first_name' => $this->individual_billing_first,
+            'last_name' => $this->individual_billing_last,
+            'phone' => $this->individual_billing_phone,
+            'email' => $this->individual_billing_email,
             'address1' => $this->individual_billing_address1,
             'address2' => $this->individual_billing_address2,
             'type' => 'billing',
@@ -691,6 +851,10 @@ class StoreOrder extends Component
             'updated_at' => now(),
           ]);
           Address::where('account_id', $this->is_account)->where('type', 'billing')->update([
+            'first_name' => $this->juridic_billing_first,
+            'last_name' => $this->juridic_billing_last,
+            'phone' => $this->juridic_billing_phone,
+            'email' => $this->juridic_billing_email,
             'address1' => $this->juridic_billing_address1,
             'address2' => $this->juridic_billing_address2,
             'country' => $this->juridic_billing_country,
@@ -732,6 +896,10 @@ class StoreOrder extends Component
 
           Address::create([
             'account_id' => $account->id,
+            'first_name' => $this->juridic_billing_first,
+            'last_name' => $this->juridic_billing_last,
+            'phone' => $this->juridic_billing_phone,
+            'email' => $this->juridic_billing_email,
             'address1' => $this->juridic_billing_address1,
             'address2' => $this->juridic_billing_address2,
             'type' => 'billing',
@@ -810,6 +978,7 @@ class StoreOrder extends Component
           'session_id' => $this->session_id,
           'account_id' => $accid,
           'cart_id' => $this->cart->id,
+
           'quantity_amount' => $this->cart->quantity_amount,
           'sum_amount' => $this->cart->sum_amount,
           'final_amount' => ($this->cart->sum_amount + app('global_delivery_price') - $this->cart->voucher_value),
@@ -828,8 +997,10 @@ class StoreOrder extends Component
       ]);
 
       foreach ($this->cartitems as $item) {
-        $item->product->quantity -= $item->quantity;
-        $item->product->save();
+        if ($this->payment['type'] != 'card') {
+          $item->product->quantity -= $item->quantity;
+          $item->product->save();
+        }
 
         Order_Item::create([
           'order_id' => $order->id,
@@ -851,13 +1022,125 @@ class StoreOrder extends Component
           'status_id' => app('global_cart_closed')
         ]);
 
-        $this->step++;
+        $this->step = 3;
+        $this->new_order = $order;
+
         $this->emit('orderprocess');
+        if (app()->has("global_send_to_salesforce") && app('global_send_to_salesforce') == 'true') {
+
+          //request to salesforce
+          $order_lines = [];
+          foreach ($order->orders as $sub_order) {
+            $order_line = [
+              '00N9N000000QGYY' => $sub_order->order_id,
+              '00N9N000000QGYT' => $sub_order->id,
+              '00N9N000000QGYd' => $sub_order->product_id,
+              '00N9N000000QGZC' => $sub_order->quantity,
+              '00NQF000000Yzc9' => $sub_order->price
+            ];
+            $order_lines[] = $order_line;
+          }
+          $client = new Client();
+          $order_lines_string = json_encode($order_lines);
+          $hashed = base64_encode($order->order_number);
+          $client->post('https://webto.salesforce.com/servlet/servlet.WebToCase', [
+            'headers' => [
+              'Accept' => 'application/json',
+            ],
+            'query' => [
+              'orgid' => '00D09000008XPQu',
+              'debug' => '1',
+              'debugEmail' => 'iosif.relia@eztemcorp.com',
+              'subject' => app()->has('global_site_name') && app('global_site_name') != "" ?
+                app('global_site_name') . ' Order_id:' . $order->id :
+                'Order_id:' . $order->id,
+              '00N9N000000QGVe' => app()->has('global_site_url') && app('global_site_url') != "" ?
+                app('global_site_url') : 'Verifica site url-ul proiectului',
+              'type' => 'Store Order Master',
+
+              //hasedinfo
+              '00NQF000000VDVd' => $hashed,
+
+              //order
+              '00N9N000000QGVZ' => $order->id,
+              '00N9N000000QGVj' => $order->order_number,
+              '00N9N000000QGVo' => $order->status->name,
+              '00N9N000000QGVt' => $order->currency->name,
+              '00N9N000000QGVy' => $order->payment->type,
+              '00N9N000000QGW3' => $order->voucher->code ?? "",
+              '00N9N000000QGW8' => $order->voucher_value,
+              '00N9N000000QGWI' => $order->delivery_price,
+              '00N9N000000QGWN' => $order->final_amount,
+
+              //orderlines
+              '00N9N000000QGYi' => $order_lines_string,
+
+              //account
+              '00N9N000000QGWS' => $order->account->id,
+              '00N9N000000QGYx' => $order->account->type,
+              '00N9N000000QGWX' => $order->account->company_name ?? "",
+              '00N9N000000QGWc' => $order->account->registration_code ?? "",
+              '00N9N000000QGWh' => $order->account->registration_number ?? "",
+              '00N9N000000QGWr' => $order->account->bank_name ?? "",
+              '00N9N000000QGWw' => $order->account->account ?? "",
+              //billing adress
+              '00N9N000000QGX1' => $order->account->addresses->where('type', 'billing')->first()->address1,
+              '00N9N000000QGX6' => $order->account->addresses->where('type', 'billing')->first()->address2,
+              '00N9N000000QGXB' => $order->account->addresses->where('type', 'billing')->first()->country,
+              '00N9N000000QGXG' => $order->account->addresses->where('type', 'billing')->first()->county,
+              '00N9N000000QGXL' => $order->account->addresses->where('type', 'billing')->first()->city,
+              '00N9N000000QGXQ' => $order->account->addresses->where('type', 'billing')->first()->zipcode,
+              '00N9N000000QGXV' => $order->account->addresses->where('type', 'billing')->first()->first_name ?? "",
+              '00N9N000000QGXa' => $order->account->addresses->where('type', 'billing')->first()->last_name ?? "",
+              '00N9N000000QGXf' => $order->account->addresses->where('type', 'billing')->first()->phone ?? "",
+              '00N9N000000QGXk' => $order->account->addresses->where('type', 'billing')->first()->email ?? "",
+              //shipping adress
+              '00N9N000000QGXp' => $order->account->addresses->where('type', 'shipping')->first()->address1,
+              '00N9N000000QGXu' => $order->account->addresses->where('type', 'shipping')->first()->address2,
+              '00N9N000000QGXz' => $order->account->addresses->where('type', 'shipping')->first()->country,
+              '00N9N000000QGWi' => $order->account->addresses->where('type', 'shipping')->first()->county,
+              '00N9N000000QGY4' => $order->account->addresses->where('type', 'shipping')->first()->city,
+              '00N9N000000QGWE' => $order->account->addresses->where('type', 'shipping')->first()->zipcode,
+              '00N9N000000QGY9' => $order->account->addresses->where('type', 'shipping')->first()->first_name ?? "",
+              '00N9N000000QGYE' => $order->account->addresses->where('type', 'shipping')->first()->last_name ?? "",
+              '00N9N000000QGYJ' => $order->account->addresses->where('type', 'shipping')->first()->phone ?? "",
+              '00N9N000000QGYO' => $order->account->addresses->where('type', 'shipping')->first()->email ?? "",
+            ],
+            'curl' => [
+              CURLOPT_SSL_VERIFYPEER => false,
+            ],
+          ]);
+        }
+        $this->dispatchBrowserEvent('goup');
       } else {
         $this->cart->update([
           'order_id' => $order->id,
-          'status_id' => app('global_check_payment')
+          'status_id' => app('global_cart_check_payment')
         ]);
+
+        Stripe::setApiKey(app('global_stripe_key'));
+
+        $session = Session::create([
+          'line_items' => [
+            [
+              'price_data' => [
+                'currency' => $order->currency->name,
+                'product_data' => [
+                  'name' =>  $order->order_number,
+                ],
+                'unit_amount' => $order->final_amount * 100,
+              ],
+              'quantity' => 1,
+            ],
+          ],
+          'mode' => 'payment',
+          'locale' => 'ro',
+          'customer_email' => $order->account->email,
+          'success_url' => route('payment_success', [], true) . "?session_id={$this->session_id}",
+          'cancel_url' => route('payment_cancel', [], true) . "?session_id={$this->session_id}",
+        ]);
+        $this->orderNumber = $order->order_number;
+        return redirect()->to($session->url);
       }
     }
   }

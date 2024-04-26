@@ -19,9 +19,13 @@ return new class extends Migration
       $table->string('sku')->nullable()->unique();
       $table->string('ean')->nullable()->unique();
       $table->boolean('active');
+      $table->boolean('is_new')->nullable()->default(
+        false
+      );
       $table->integer('popularity')->nullable();
-      $table->string('short_description')->nullable();
       $table->longText('long_description')->nullable();
+      $table->string('short_description')->nullable();
+      $table->string('meta_description')->nullable();
       $table->integer('quantity')->nullable();
       $table->date('start_date')->nullable();
       $table->date('end_date')->nullable();

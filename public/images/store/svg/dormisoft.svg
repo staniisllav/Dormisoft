@@ -5,13 +5,7 @@
  preserveAspectRatio="xMidYMid meet">
  <style>
     path{
-        fill: #333;
-    }
-
-    @media (prefers-color-scheme: dark){
-        path{
-            fill: #fafafa;
-        }
+        fill: #333333;
     }
 </style>
 <metadata>

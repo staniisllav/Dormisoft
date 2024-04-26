@@ -1,13 +1,23 @@
 //<---------------------------- Header Styles ---------------------------->
+div {
+  .banner {
+    // Stiluri pentru banner
+    & + header {
+      padding-top: 26px;
+    }
+  }
+}
+
 header {
-  width: 100%;
+  width: 100vw;
   z-index: 300;
   background: #ffffff;
   border-bottom: 1px solid #fafafa;
   transition: padding 0.3s;
   position: fixed;
   top: 0;
-  padding-top: 26px;
+  left: 0;
+  // padding-top: 26px;
 }
 
 .header__container {
@@ -49,7 +59,7 @@ header {
   border-radius: 50%;
   position: relative;
 
-  & > svg {
+  &>svg {
     stroke: $lightBlack;
   }
 }

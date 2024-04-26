@@ -1,4 +1,7 @@
 //<--------------------------------------------------------------------->
+
+// const { forEach } = require("lodash");
+
 //<--------------------------- Slider-Images --------------------------->
 function slider(sliderID) {
   const slider = document.querySelector(sliderID);
@@ -143,16 +146,67 @@ function slider(sliderID) {
 function flyToCart(button) {
   const shopping_cart = document.getElementById("basketOpen");
   const numberCart = shopping_cart.querySelector(".header__count");
-  numberCart.style.scale = 1.5;
 
-  setTimeout(() => {
-    numberCart.style.scale = 1;
-  }, 1500);
+  const target_parent = button.closest(".card");
+  const cardName = target_parent.querySelector(".card-title").innerText.trim(); // Obținem numele cardName
+  const cardPrice = target_parent.querySelector(".card-price").innerText.trim(); // Obținem pretul cardPrice
+
+  if (typeof dataLayer !== 'undefined') {
+    dataLayer.push({
+      'event': 'adaugareInCos',
+      'cardName': cardName,
+      'cardPrice': cardPrice
+    });
+  } else {
+    console.log('dataLayer is not defined');
+  }
+
+  if (!button.classList.contains('in')) {
+    button.classList.add('in');
+    setTimeout(() => button.classList.remove('in'), 1500);
+  }
+  if(!numberCart){
+    return
+  } else {
+    numberCart.style.scale = 1.5;
+    setTimeout(() => {
+      numberCart.style.scale = 1;
+    }, 1000);
+  }
+}
+function addWishList(button) {
+  const wish = document.getElementById("wishlistCount");
+
+  const target_parent = button.closest(".card");
+  const cardName = target_parent.querySelector(".card-title").innerText.trim(); // Obținem numele cardName
+  const cardPrice = target_parent.querySelector(".card-price").innerText.trim(); // Obținem pretul cardPrice
+
+  if (typeof dataLayer !== 'undefined') {
+    dataLayer.push({
+      'event': 'adaugareInFavorite',
+      'cardName': cardName,
+      'cardPrice': cardPrice
+    });
+  } else {
+    console.log('dataLayer is not defined');
+  }
+
+  if(!wish) {
+    return;
+  } else {
+    wish.style.scale = 1.5;
+
+    setTimeout(() => {
+      wish.style.scale = 1;
+    }, 1500);
+  }
 }
 //<-------------------------- End Add to Cart -------------------------->
 //<--------------------------------------------------------------------->
 //<------------------------ Start Functions IOS ------------------------>
 slider(".main-slider");
-slider(".card-slider");
+slider(".new-slider");
+slider(".popular-slider");
+
 //<---------------------- End Start Functions IOS ---------------------->
 //<--------------------------------------------------------------------->

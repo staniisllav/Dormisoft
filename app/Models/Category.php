@@ -20,17 +20,52 @@ class Category extends Model
   {
     return $this->hasMany(Subcategory::class, 'parrent_id');
   }
+  public function parrent()
+  {
+    return $this->hasMany(Subcategory::class, 'category_id');
+  }
   public function media()
   {
     return $this->morphToMany(Media::class, 'mediable', 'item_media');
   }
 
+  public function getCategoryBreadcrumbs()
+  {
+    $breadcrumbs = collect();
+
+    $currentCategory = $this;
+
+    while ($currentCategory) {
+      $breadcrumbs->prepend([
+        'name' => $currentCategory->name,
+        'slug' => $currentCategory->seo_id ?? $currentCategory->id,
+      ]);
+
+      if ($currentCategory->parrent->isNotEmpty()) {
+        $parrentCategory = $currentCategory->parrent->first()->category_parrent;
+
+        if (!$parrentCategory) {
+          break;
+        }
+
+        $currentCategory = $parrentCategory;
+      } else {
+        break;
+      }
+    }
+
+    return $breadcrumbs->toArray();
+  }
+
   protected $fillable = [
     'name',
     'parrent',
+    'active',
     'long_description',
+    'meta_description',
     'short_description',
     'sequence',
+    'slider_sequence',
     'start_date',
     'end_date',
     'createdby',
@@ -50,6 +85,10 @@ class Category extends Model
   public static function search_by_name($search)
   {
     return empty($search) ? static::query()
-      : static::query()->where('name', 'like', '%' . $search . '%');
+      : static::query()
+      ->where(function ($query) use ($search) {
+        $query->where('name', 'like', '%' . $search . '%')
+          ->orWhere('short_description', 'like', '%' . $search . '%');
+      });
   }
 }

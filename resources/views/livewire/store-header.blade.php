@@ -7,14 +7,15 @@
 				Similarly, its JavaScript functionality is implemented in the "header.js" file. -->
 	<!---------------------------------------------------------->
 	<!--------------------Banner(Header Top)-------------------->
-	<div class="banner">
-		<div class="banner__container container">
-			<p>
-				Încălzește-ți iarna cu stil! Descoperă confortul termic al produselor noastre la jumătate de preț. Alege
-				să fii fresh în fiecare sezon!
-			</p>
+	@if (app()->has("global_header_top_text") && app("global_header_top_text") != "")
+		<div class="banner">
+			<div class="banner__container container">
+				<p>
+					{!! app("global_header_top_text") !!}
+				</p>
+			</div>
 		</div>
-	</div>
+	@endif
 	<!------------------END-Banner(Header Top)------------------>
 	<!---------------------------------------------------------->
 	<!--------------------------Header-------------------------->
@@ -23,12 +24,17 @@
 			<!-------------------------Logo------------------------->
 
 			<a class="logo" href="{{ url("/") }}">
-				<img src="/images/store/svg/noren-black.svg" alt="Embianz Logo">
+				<img loading="lazy" src="/images/store/svg/dormisoft.svg" alt="Embianz Logo">
 			</a>
 			<!-----------------------END-Logo----------------------->
 			<!------------------------------------------------------>
 			<!---------------------NavMenu bar---------------------->
 			<div class="navbar__list">
+	@if (app()->has("global_show_on_header") && app("global_show_on_header") == "true")
+	<a class="navbar__link" href="{{ route("products", ["categorySlug" => app('global_default_category')]) }}">
+							Toate Produsele
+						</a>
+@endif
 				@foreach ($categories as $category)
 					@if ($category->subcategory->count() != 0)
 						<div class="dropdown">
@@ -39,7 +45,9 @@
 								</svg>
 							</a>
 							<div class="dropdown__list">
-								@foreach ($category->subcategory as $subcategory)
+								@foreach ($category->subcategory->sortBy(function ($subcategory) {
+								return $subcategory->category->sequence;
+				}) as $subcategory)
 									<div class="dropdown__item">
 										<a class="dropdown__item--button" href="{{ route("products", ["categorySlug" => $subcategory->category->seo_id !== null && $subcategory->category->seo_id !== "" ? $subcategory->category->seo_id : $subcategory->category->id]) }}">
 											{{ $subcategory->category->name }}
@@ -51,8 +59,10 @@
 										</a>
 										@if ($subcategory->category->subcategory->count() != 0)
 											<div class="dropdown__item--list">
-												@foreach ($subcategory->category->subcategory as $subsubCategory)
-													<a href="{{ route("products", ["categorySlug" => $subsubCategory->category->seo_id !== null && $subsubCategory->category->seo_id !== "" ? $subsubCategory->category->seo_id : $subsubCategory->category->id]) }}">
+												@foreach ($subcategory->category->subcategory->sortBy(function ($subsubCategory) {
+								return $subsubCategory->category->sequence;
+				}) as $subsubCategory)
+													<a class="dropdown__item--link" href="{{ route("products", ["categorySlug" => $subsubCategory->category->seo_id !== null && $subsubCategory->category->seo_id !== "" ? $subsubCategory->category->seo_id : $subsubCategory->category->id]) }}">
 														{{ $subsubCategory->category->name }}
 													</a>
 												@endforeach
@@ -88,7 +98,7 @@
 					</svg>
 				</button>
 				<a class="logo__hidden" href="{{ url("/") }}">
-					<img src="/images/store/svg/noren-black.svg" alt="Site Logo">
+					<img loading="lazy" src="/images/store/svg/dormisoft.svg" alt="Site Logo">
 				</a>
 				{{-- wislist button --}}
 				<button class="header__btn" wire:click="$emit('showwis')" id="wishOpen" aria-label="Open wishlist button">
@@ -138,7 +148,7 @@
 		<div class="menu__content" id="menuContent">
 			<div class="menu__top">
 				<button class="menu__close" id="menuClose" href="#">
-					Inchide Meniul
+					Închide Meniul
 					<svg>
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -152,11 +162,12 @@
 							<div class="dropmenu__button">
 								<a class="dropmenu__button--link" href="{{ route("products", ["categorySlug" => $category->seo_id !== null && $category->seo_id !== "" ? $category->seo_id : $category->id]) }}">
 									@if ($category->media->first())
-										<img class="cart__list--img" src="/{{ $category->media->first()->path }}{{ $category->media->first()->name }}" alt="{{ $category->media->first()->name }}{{ $category->name }}">
+										<img loading="lazy" class="cart__list--img" src="/{{ $category->media->first()->path }}{{ $category->media->first()->name }}" alt="{{ $category->media->first()->name }}{{ $category->name }}">
+										<h4>{{ $category->name }}</h4>
 									@else
-										<img class="heart__list--img" src="/images/store/default/default70.webp" alt="something wrong">
+										<h4 style="margin-left: 7px">{{ $category->name }}</h4>
+										{{-- <img loading="lazy" class="heart__list--img" src="/images/store/default/default70.webp" alt="something wrong"> --}}
 									@endif
-									<h4>{{ $category->name }}</h4>
 								</a>
 								<button class="dropmenu__open" href="#">
 									<svg>
@@ -170,9 +181,10 @@
 										<div class="submenu__button">
 											<a class="submenu__button--link" href="{{ route("products", ["categorySlug" => $subcategory->category->seo_id !== null && $subcategory->category->seo_id !== "" ? $subcategory->category->seo_id : $subcategory->category->id]) }}">
 												@if ($subcategory->category->media->first() != null)
-													<img src="/{{ $subcategory->category->media->first()->path }}{{ $subcategory->category->media->first()->name }}" alt="{{ $subcategory->category->media->first()->name }}{{ $subcategory->category->name }}">
+													<img loading="lazy" src="/{{ $subcategory->category->media->first()->path }}{{ $subcategory->category->media->first()->name }}" alt="{{ $subcategory->category->media->first()->name }}{{ $subcategory->category->name }}">
+													{{-- <h4>{{ $subcategory->category->name }}</h4> --}}
 												@else
-													<img src="/images/store/default/default70.webp" alt="something wrong">
+													{{-- <img loading="lazy" src="/images/store/default/default70.webp" alt="something wrong"> --}}
 												@endif
 												<h4>{{ $subcategory->category->name }}</h4>
 											</a>
@@ -189,9 +201,9 @@
 												@foreach ($subcategory->category->subcategory as $subsubCategory)
 													<a class="submenu__link" href="{{ route("products", ["categorySlug" => $subsubCategory->category->seo_id !== null && $subsubCategory->category->seo_id !== "" ? $subsubCategory->category->seo_id : $subsubCategory->category->id]) }}">
 														@if ($subsubCategory->category->media->first() != null)
-															<img src="/{{ $subsubCategory->category->media->first()->path }}{{ $subsubCategory->category->media->first()->name }}" alt="{{ $subsubCategory->category->media->first()->name }}{{ $subsubCategory->category->name }}">
+															<img loading="lazy" src="/{{ $subsubCategory->category->media->first()->path }}{{ $subsubCategory->category->media->first()->name }}" alt="{{ $subsubCategory->category->media->first()->name }}{{ $subsubCategory->category->name }}">
 														@else
-															<img src="/images/store/default/default70.webp" alt="something wrong">
+															{{-- <img loading="lazy" src="/images/store/default/default70.webp" alt="something wrong"> --}}
 														@endif
 														<h4>{{ $subsubCategory->category->name }}</h4>
 													</a>
@@ -205,9 +217,9 @@
 					@else
 						<a class="menu__link" href="{{ route("products", ["categorySlug" => $category->seo_id !== null && $category->seo_id !== "" ? $category->seo_id : $category->id]) }}">
 							@if ($category->media->first() != null)
-								<img src="/{{ $category->media->first()->path }}{{ $category->media->first()->name }}" alt="{{ $category->media->first()->name }} {{ $category->name }}">
+								<img loading="lazy" src="/{{ $category->media->first()->path }}{{ $category->media->first()->name }}" alt="{{ $category->media->first()->name }} {{ $category->name }}">
 							@else
-								<img src="/images/store/default/default70.webp" alt="something wrong">
+								{{-- <img loading="lazy" src="/images/store/default/default70.webp" alt="something wrong"> --}}
 							@endif
 							<h4> {{ $category->name }}</h4>
 						</a>

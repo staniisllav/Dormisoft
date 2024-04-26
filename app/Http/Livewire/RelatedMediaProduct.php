@@ -92,16 +92,16 @@ class RelatedMediaProduct extends Component
         $media_for_prod->sequence = $media_new['sequence'];
       }
       if (array_key_exists('name', $media_new)) {
-        $newName = $media_new['name'] . '.' . $media_for_prod->type;
+        $newName = $media_new['name'] . '.' . $media_for_prod->extension;
         $oldName = $media_for_prod->name;
         if ($newName !== $oldName) {
           $path = $media_for_prod->path;
           if (file_exists($path . $newName)) {
             $i = 1;
-            while (file_exists($path . $media_new['name'] . '(' . $i . ').' . $media_for_prod->type)) {
+            while (file_exists($path . $media_new['name'] . '(' . $i . ').' . $media_for_prod->extension)) {
               $i++;
             }
-            $newName = $media_new['name'] . '(' . $i . ').' . $media_for_prod->type;
+            $newName = $media_new['name'] . '(' . $i . ').' . $media_for_prod->extension;
           }
           $oldFilePath = $path . $oldName;
           $newFilePath = $path . $newName;
@@ -129,13 +129,19 @@ class RelatedMediaProduct extends Component
   }
   public function external()
   {
-    $this->row = 1;
+    $this->row = 0;
     $this->externalmedia = true;
-    $this->file_resize[1] = false;
+    $this->file_name[$this->row] = null;
+    $this->file_sequences[$this->row] = null;
+    $this->file_link[$this->row] = null;
+    $this->file_resize[$this->row] = false;
   }
   public function plus()
   {
     $this->row++;
+    $this->file_name[$this->row] = null;
+    $this->file_sequences[$this->row] = null;
+    $this->file_link[$this->row] = null;
     $this->file_resize[$this->row] = false;
   }
   public function updatedChecked()
@@ -173,7 +179,7 @@ class RelatedMediaProduct extends Component
     array_splice($this->file_resize, $i, 1);
     $this->row--;
 
-    if ($this->row < 1) {
+    if ($this->row < 0) {
       $this->externalmedia = false;
     }
   }
@@ -190,27 +196,54 @@ class RelatedMediaProduct extends Component
     }
     $path = $filespath . $this->product->id . "/";
 
-    for ($i = 1; $i <= $this->row; $i++) {
+    for ($i = 0; $i <= $this->row; $i++) {
       $this->resetErrorBag();
       $this->validate([
         'file_sequences.*' => 'required',
         'file_link.*' => 'required|url',
         'file_name.*' => 'required'
       ]);
-      $fileContent = file_get_contents($this->file_link[$i]);
-      // Get image information
-      $imageInfo = getimagesizefromstring($fileContent);
-      //extension
-      $fileExtension = image_type_to_extension($imageInfo[2], false);
-      $name = $this->file_name[$i] . '.' . $fileExtension;
-      if (file_exists($path . $name)) {
-        $this->j = 1;
-        while (file_exists($path . $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension)) {
-          $this->j++;
-        }
-        $name = $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension;
+      $urlComponents = parse_url($this->file_link[$i]);
+
+      $urlWithoutParams = $urlComponents['scheme'] . '://' . $urlComponents['host'] . $urlComponents['path'];
+      $this->file_link[$i] = $urlWithoutParams;
+      $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+      $fileExtension = strtolower(pathinfo($this->file_link[$i], PATHINFO_EXTENSION));
+
+      if (!in_array($fileExtension, $allowedExtensions)) {
+        continue;
       }
-      Storage::disk('public_upload')->put($path . $name, $fileContent);
+      $fileContent = file_get_contents($this->file_link[$i]);
+      if ($fileContent == false) {
+        continue;
+      }
+      $imageInfo = getimagesizefromstring($fileContent);
+      if (app()->has('global_auto_webp') &&  app('global_auto_webp') == 'true') {
+        $image = Image::make($fileContent);
+        $webpContent = $image->encode('webp')->__toString();
+        $fileExtension = 'webp';
+        $name = $this->file_name[$i] . '.' . $fileExtension;
+        if (file_exists($path . $name)) {
+          $this->j = 1;
+          while (file_exists($path . $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension)) {
+            $this->j++;
+          }
+          $name = $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension;
+        }
+        Storage::disk('public_upload')->put($path . $name, $webpContent);
+      } else {
+        $fileExtension = image_type_to_extension($imageInfo[2], false);
+        $name = $this->file_name[$i] . '.' . $fileExtension;
+        if (file_exists($path . $name)) {
+          $this->j = 1;
+          while (file_exists($path . $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension)) {
+            $this->j++;
+          }
+          $name = $this->file_name[$i] . '(' . $this->j . ').' . $fileExtension;
+        }
+        Storage::disk('public_upload')->put($path . $name, $fileContent);
+      }
+
       $media = new Media();
       $media->name = $name;
       $media->extension = $fileExtension;
@@ -336,7 +369,11 @@ class RelatedMediaProduct extends Component
     $this->i = 0;
     foreach ($this->medias as $file) {
       $media = new Media();
-      $type = $file->getClientOriginalExtension();
+      if (app()->has('global_auto_webp') &&  app('global_auto_webp') == 'true') {
+        $type = 'webp';
+      } else {
+        $type = $file->getClientOriginalExtension();
+      }
       $image = Image::make($file);
       $width = $image->width();
       $height = $image->height();

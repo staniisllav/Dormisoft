@@ -76,7 +76,7 @@
 						<label>Cart Sum amount </label>
 					</div>
 					<div class="item__form-input-close">
-						<div>{{ $cart->currency->first()->name }}</div>
+						<div>{{ $cart->currency->name }}</div>
 						<label>Cart Currency </label>
 					</div>
 					@if ($edititem === null)
@@ -93,7 +93,7 @@
 					@endif
 					@if ($cart->order_id != null)
 						<div class="item__form-input-close">
-							<div><a href="/show_order/{{ $cart->order->id }}">{{ $cart->order->name }}</a></div>
+							<div><a href="{{ route("show_order", ['id'=> $cart->order_id ])}}">{{ $cart->order->name }}</a></div>
 							<label>Related Order </label>
 						</div>
 					@endif
