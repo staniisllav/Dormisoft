@@ -72,7 +72,7 @@
 						</li>
 						<li>
 							<p>
-								sub nr. J40/7017/2014, ( numita în continuare <b>“noren”</b> sau <b>“noi“</b>). În
+								sub nr. J40/7017/2014, ( numita în continuare <b>“dormisoft”</b> sau <b>“noi“</b>). În
 								sensul legislației
 								cu privire la protecția datelor, suntem operator atunci când prelucrăm datele dvs cu
 								caracter personal.

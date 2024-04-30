@@ -10,7 +10,11 @@
  @endif
  <meta name="description" content="{{ $description }}">
 
-
+ {{-- DormiSoft Favicon --}}
+ {{-- <link rel="icon" type="image/x-icon" href="/images/store/svg/dormisoft_favicon.svg"> --}}
+ {{-- dormisoft Favicon --}}
+ {{-- <link rel="icon" type="image/x-icon" href="/images/store/svg/noren_favicon.svg"> --}}
+{{-- favicon --}}
 
 <link rel="apple-touch-icon" sizes="180x180" href="/images/store/svg/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/images/store/svg/favicon-32x32.png">

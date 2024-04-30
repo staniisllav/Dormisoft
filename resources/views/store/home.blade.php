@@ -1,6 +1,6 @@
-<x-store-head 
-    :title="getTitle()" 
-    :description="getDescription()" 
+<x-store-head
+    :title="getTitle()"
+    :description="getDescription()"
 />
 
 @php
